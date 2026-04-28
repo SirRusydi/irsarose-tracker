@@ -1,0 +1,825 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Baby Daily Tracker</title>
+  
+  <!-- Retaining element SDK for your config, but replacing data SDK with PocketBase -->
+  <script src="/_sdk/element_sdk.js"></script>
+  <!-- PocketBase SDK -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pocketbase/0.20.2/pocketbase.umd.js"></script>
+  
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <style>
+    * { font-family: 'Nunito', sans-serif; }
+    body, html { height: 100%; margin: 0; box-sizing: border-box; }
+    .app-wrapper { height: 100%; overflow: auto; background: #FFF8F0; }
+
+    .tab-btn.active { background: #FF8FAB; color: white; }
+    .tab-btn { transition: all 0.2s; }
+
+    .log-btn { transition: all 0.15s; }
+    .log-btn:hover { transform: translateY(-2px); }
+    .log-btn:active { transform: translateY(0); }
+
+    .progress-bar-inner { transition: width 0.6s cubic-bezier(0.4,0,0.2,1); }
+
+    .entry-card { animation: slideIn 0.3s ease; }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .section-card { background: white; border-radius: 20px; box-shadow: 0 2px 12px rgba(255,143,171,0.1); }
+
+    .badge-good { background: #D1FAE5; color: #065F46; }
+    .badge-warn { background: #FEF3C7; color: #92400E; }
+    .badge-low  { background: #FFE4E6; color: #9F1239; }
+
+    .pill { border-radius: 999px; padding: 2px 12px; font-size: 0.75rem; font-weight: 700; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #FECDD3; border-radius: 10px; }
+
+    .modal-backdrop { background: rgba(0,0,0,0.3); backdrop-filter: blur(2px); }
+    .modal-box { animation: popIn 0.2s ease; }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.92); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .spinner { border: 3px solid #FECDD3; border-top-color: #FF8FAB; border-radius: 50%; width: 22px; height: 22px; animation: spin 0.7s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .delete-confirm { background: #FFF1F2; border: 1.5px solid #FECDD3; border-radius: 12px; padding: 6px 12px; display: flex; align-items: center; gap: 8px; }
+  </style>
+</head>
+<body class="h-full">
+  <div class="app-wrapper w-full" id="app-root">
+    
+    <!-- Header -->
+    <header id="app-header" style="background: linear-gradient(135deg, #FF8FAB 0%, #FFB3C6 60%, #FFCAD4 100%);" class="px-5 pt-6 pb-8 text-white relative overflow-hidden">
+      <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at 20% 80%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px); background-size: 40px 40px;"></div>
+      <div class="relative z-10 flex items-center justify-between">
+        <div>
+          <p class="text-pink-100 text-sm font-600 tracking-wide" id="header-date"></p>
+          <h1 class="text-2xl font-900 mt-0.5" id="header-baby-name">Baby Tracker</h1>
+          <p class="text-pink-100 text-sm mt-1" id="header-subtitle">Today's overview</p>
+        </div>
+        <div class="w-14 h-14 rounded-full bg-white bg-opacity-30 flex items-center justify-center text-3xl">
+          🍼
+        </div>
+      </div>
+      <!-- Today Summary Pills -->
+      <div class="relative z-10 flex gap-2 mt-4 flex-wrap" id="summary-pills"></div>
+    </header>
+
+    <!-- Tab Bar -->
+    <nav class="flex gap-2 px-4 pt-4 pb-2" role="navigation" aria-label="Main navigation">
+      <button class="tab-btn active flex-1 py-2 rounded-xl font-700 text-sm" id="tab-log" onclick="switchTab('log')" aria-label="Log activity">📝 Log</button> 
+      <button class="tab-btn flex-1 py-2 rounded-xl font-700 text-sm bg-white text-pink-400" id="tab-today" onclick="switchTab('today')" aria-label="Today summary">📊 Today</button> 
+      <button class="tab-btn flex-1 py-2 rounded-xl font-700 text-sm bg-white text-pink-400" id="tab-history" onclick="switchTab('history')" aria-label="History">📅 History</button>
+    </nav>
+
+    <main id="main-content" class="px-4 pb-8">
+      
+      <!-- === LOG TAB === -->
+      <section id="tab-content-log" role="tabpanel" aria-label="Log activity">
+        <!-- Quick Log Buttons -->
+        <div class="section-card p-4 mb-4">
+          <h2 class="text-sm font-800 text-gray-500 uppercase tracking-wider mb-3">Quick Log</h2>
+          <div class="grid grid-cols-2 gap-3">
+            <button class="log-btn flex flex-col items-center justify-center p-4 rounded-2xl font-700 text-white text-sm gap-1" style="background: linear-gradient(135deg,#A78BFA,#8B5CF6);" onclick="openModal('sleep')"> 
+              <span class="text-2xl">😴</span>Sleep / Wake 
+            </button> 
+            <button class="log-btn flex flex-col items-center justify-center p-4 rounded-2xl font-700 text-white text-sm gap-1" style="background: linear-gradient(135deg,#F472B6,#EC4899);" onclick="openModal('breast')"> 
+              <span class="text-2xl">🤱</span>Breastfeed 
+            </button> 
+            <button class="log-btn flex flex-col items-center justify-center p-4 rounded-2xl font-700 text-white text-sm gap-1" style="background: linear-gradient(135deg,#60A5FA,#3B82F6);" onclick="openModal('formula')"> 
+              <span class="text-2xl">🍼</span>Formula Milk 
+            </button> 
+            <button class="log-btn flex flex-col items-center justify-center p-4 rounded-2xl font-700 text-white text-sm gap-1" style="background: linear-gradient(135deg,#34D399,#10B981);" onclick="openModal('diaper')"> 
+              <span class="text-2xl">🧷</span>Diaper Change 
+            </button>
+          </div>
+        </div>
+        
+        <!-- Recent Entries -->
+        <div class="section-card p-4">
+          <h2 class="text-sm font-800 text-gray-500 uppercase tracking-wider mb-3">Recent Today</h2>
+          <div id="recent-entries-list" class="space-y-3">
+            <p class="text-gray-400 text-sm text-center py-6">No entries yet today. Start logging! 👆</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- === TODAY TAB === -->
+      <section id="tab-content-today" class="hidden" role="tabpanel" aria-label="Today summary">
+        <!-- Sleep Summary -->
+        <div class="section-card p-4 mb-4">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-800 text-gray-700 flex items-center gap-2">😴 Sleep</h2>
+            <span id="sleep-badge" class="pill badge-warn">Loading…</span>
+          </div>
+          <div class="flex items-end gap-2 mb-2">
+            <span class="text-3xl font-900 text-purple-600" id="sleep-total">0h</span> 
+            <span class="text-gray-400 text-sm mb-1" id="sleep-goal-label">/ 16h goal</span>
+          </div>
+          <div class="w-full bg-purple-100 rounded-full h-3 mb-1">
+            <div class="progress-bar-inner bg-purple-400 h-3 rounded-full" id="sleep-progress" style="width:0%"></div>
+          </div>
+          <p class="text-xs text-gray-400" id="sleep-sessions">0 sleep sessions today</p>
+        </div>
+
+        <!-- Milk Summary -->
+        <div class="section-card p-4 mb-4">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-800 text-gray-700 flex items-center gap-2">🍼 Milk Intake</h2>
+            <span id="milk-badge" class="pill badge-warn">Loading…</span>
+          </div>
+          <div class="flex items-end gap-2 mb-2">
+            <span class="text-3xl font-900 text-blue-600" id="milk-total">0oz</span> 
+            <span class="text-gray-400 text-sm mb-1" id="milk-goal-label">/ 20oz goal</span>
+          </div>
+          <div class="w-full bg-blue-100 rounded-full h-3 mb-2">
+            <div class="progress-bar-inner bg-blue-400 h-3 rounded-full" id="milk-progress" style="width:0%"></div>
+          </div>
+          <div class="flex gap-3 text-sm">
+            <span class="text-pink-500 font-700">🤱 Breast: <span id="breast-total">0</span> sessions</span> 
+            <span class="text-blue-500 font-700">🍼 Formula: <span id="formula-total">0oz</span></span> 
+            <span class="text-pink-400 font-700">🤱 Breast oz: <span id="breast-oz-total">0oz</span></span>
+          </div>
+        </div>
+
+        <!-- Diaper Summary -->
+        <div class="section-card p-4 mb-4">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-800 text-gray-700">🧷 Diapers</h2>
+            <span id="diaper-badge" class="pill badge-warn">Loading…</span>
+          </div>
+          <div class="flex gap-4">
+            <div class="flex flex-col items-center flex-1 bg-yellow-50 rounded-xl p-3">
+              <span class="text-2xl font-900 text-yellow-600" id="diaper-wet">0</span> 
+              <span class="text-xs text-gray-500 font-600 mt-0.5">Wet</span>
+            </div>
+            <div class="flex flex-col items-center flex-1 bg-amber-50 rounded-xl p-3">
+              <span class="text-2xl font-900 text-amber-700" id="diaper-dirty">0</span> 
+              <span class="text-xs text-gray-500 font-600 mt-0.5">Dirty</span>
+            </div>
+            <div class="flex flex-col items-center flex-1 bg-gray-50 rounded-xl p-3">
+              <span class="text-2xl font-900 text-gray-600" id="diaper-total-count">0</span> 
+              <span class="text-xs text-gray-500 font-600 mt-0.5">Total</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tips -->
+        <div class="section-card p-4" style="background: linear-gradient(135deg,#FFF0F5,#FFF8F0);">
+          <h2 class="font-800 text-gray-700 mb-2">💡 Healthy Targets</h2>
+          <ul class="text-sm text-gray-600 space-y-1.5">
+            <li>😴 Newborns need <strong>14–17h</strong> sleep/day</li>
+            <li>🍼 Infants typically need <strong>16–32oz</strong>/day formula</li>
+            <li>🤱 Breastfeed every <strong>2–3 hours</strong> (8–12x/day)</li>
+            <li>🧷 Expect <strong>6–10 diapers</strong> per day (newborn)</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- === HISTORY TAB === -->
+      <section id="tab-content-history" class="hidden" role="tabpanel" aria-label="History">
+        <div class="section-card p-4 mb-4">
+          <h2 class="text-sm font-800 text-gray-500 uppercase tracking-wider mb-3">Past Days</h2>
+          <div id="history-list" class="space-y-4">
+            <p class="text-gray-400 text-sm text-center py-6">No history yet. Keep logging! 📝</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- =========== MODALS =========== -->
+  <div id="modal-overlay" class="fixed inset-0 z-50 modal-backdrop flex items-end justify-center hidden" onclick="closeModalOutside(event)">
+    <div class="modal-box w-full max-w-md bg-white rounded-t-3xl p-6 pb-8 shadow-2xl" id="modal-box">
+      <div id="modal-content"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-5 py-3 rounded-2xl text-sm font-700 shadow-xl z-50 hidden transition-all duration-300 flex items-center gap-2"></div>
+  
+  <script>
+    // ============================================================
+    // POCKETBASE SETUP
+    // ============================================================
+    // IMPORTANT: Replace this URL with your actual PocketBase server URL
+    const pb = new PocketBase('http://127.0.0.1:8090'); 
+    let isOfflineMode = false;
+
+    // ============================================================
+    // CONFIG & STATE
+    // ============================================================
+    const defaultConfig = {
+      baby_name: "Irsa Rose",
+      daily_milk_goal_ml: "20",
+      daily_sleep_goal_hours: "16"
+    };
+
+    let allRecords = [];
+    let activeTab = 'log';
+
+    document.getElementById('header-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+    function todayStr() {
+      return new Date().toISOString().split('T')[0];
+    }
+
+    function formatTime(isoStr) {
+      const d = new Date(isoStr);
+      return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function formatDate(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+    }
+
+    // ============================================================
+    // ELEMENT SDK (Configuration logic retained if used inside a specific wrapper)
+    // ============================================================
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange: async (config) => {
+          const name = config.baby_name || defaultConfig.baby_name;
+          document.getElementById('header-baby-name').textContent = `${name}'s Tracker`;
+          document.getElementById('milk-goal-label').textContent = `/ ${config.daily_milk_goal_ml || defaultConfig.daily_milk_goal_ml}oz goal`;
+          document.getElementById('sleep-goal-label').textContent = `/ ${config.daily_sleep_goal_hours || defaultConfig.daily_sleep_goal_hours}h goal`;
+          refreshTodaySummary();
+        },
+        mapToCapabilities: (config) => ({
+          recolorables: [], borderables: [], fontEditable: undefined, fontSizeable: undefined
+        }),
+        mapToEditPanelValues: (config) => new Map([
+          ["baby_name", config.baby_name || defaultConfig.baby_name],
+          ["daily_milk_goal_ml", config.daily_milk_goal_ml || defaultConfig.daily_milk_goal_ml],
+          ["daily_sleep_goal_hours", config.daily_sleep_goal_hours || defaultConfig.daily_sleep_goal_hours]
+        ])
+      });
+    } else {
+      // Fallback if not inside Canva/Element environment
+      document.getElementById('header-baby-name').textContent = `${defaultConfig.baby_name}'s Tracker`;
+    }
+
+    // ============================================================
+    // POCKETBASE DATA INITIALIZATION
+    // ============================================================
+    async function initDatabase() {
+      try {
+        // Check for mixed content issues (HTTPS preview trying to load HTTP localhost)
+        if (window.location.protocol === 'http://127.0.0.1:8090' && pb.baseUrl.includes('http://127.0.0.1')) {
+          console.warn("Attempting to connect to local HTTP PocketBase from an HTTPS origin. This will be blocked by browser mixed-content security policies. Falling back to offline mode for preview.");
+        }
+
+        // Fetch all initial records
+        const records = await pb.collection('baby_logs').getFullList({
+          sort: '-timestamp', // Sort descending by timestamp
+        });
+        
+        allRecords = records;
+        refreshAll();
+
+        // Subscribe to real-time updates from PocketBase
+        pb.collection('baby_logs').subscribe('*', function (e) {
+          if (e.action === 'create') {
+            allRecords.push(e.record);
+          } else if (e.action === 'update') {
+            const index = allRecords.findIndex(r => r.id === e.record.id);
+            if (index !== -1) allRecords[index] = e.record;
+          } else if (e.action === 'delete') {
+            allRecords = allRecords.filter(r => r.id !== e.record.id);
+          }
+          
+          // Re-sort after updates
+          allRecords.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+          refreshAll();
+        });
+
+      } catch (err) {
+        console.error("PocketBase Error:", err);
+        isOfflineMode = true;
+        document.getElementById('header-subtitle').textContent += " (Offline Preview Mode)";
+        document.getElementById('header-subtitle').classList.add('text-yellow-200');
+        showToast('⚠️ Could not connect to database. Running in offline/preview mode.', 'error');
+        refreshAll();
+      }
+    }
+
+    // Call init on load
+    initDatabase();
+
+    // ============================================================
+    // UI UTILS
+    // ============================================================
+    function showToast(msg, type='info') {
+      const toast = document.getElementById('toast');
+      toast.innerHTML = msg;
+      toast.classList.remove('hidden');
+      if (type === 'error') {
+        toast.style.backgroundColor = '#9F1239'; // red
+      } else {
+        toast.style.backgroundColor = '#1F2937'; // dark
+      }
+      setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 3000);
+    }
+
+    function getIconForType(type) {
+      if(type.includes('sleep')) return '😴';
+      if(type === 'breastfeed') return '🤱';
+      if(type === 'formula') return '🍼';
+      if(type === 'diaper') return '🧷';
+      return '📝';
+    }
+
+    function formatEntryTitle(record) {
+      if(record.type === 'sleep_start') return 'Fell Asleep';
+      if(record.type === 'sleep_end') return 'Woke Up';
+      if(record.type === 'breastfeed') return 'Breastfed';
+      if(record.type === 'formula') return `Formula (${record.amount_ml}oz)`;
+      if(record.type === 'diaper') return `Diaper (${record.diaper_type})`;
+      return record.type;
+    }
+
+    // ============================================================
+    // TABS
+    // ============================================================
+    function switchTab(tab) {
+      activeTab = tab;
+      ['log','today','history'].forEach(t => {
+        document.getElementById(`tab-content-${t}`).classList.toggle('hidden', t !== tab);
+        const btn = document.getElementById(`tab-${t}`);
+        btn.classList.toggle('active', t === tab);
+        btn.classList.toggle('bg-white', t !== tab);
+        btn.classList.toggle('text-pink-400', t !== tab);
+      });
+      if (tab === 'today') refreshTodaySummary();
+      if (tab === 'history') refreshHistory();
+    }
+
+    // ============================================================
+    // MODAL SYSTEM
+    // ============================================================
+    function openModal(type) {
+      const overlay = document.getElementById('modal-overlay');
+      const content = document.getElementById('modal-content');
+      overlay.classList.remove('hidden');
+      content.innerHTML = buildModalHTML(type);
+      if(window.lucide) lucide.createIcons();
+    }
+
+    function closeModal() {
+      document.getElementById('modal-overlay').classList.add('hidden');
+    }
+    function closeModalOutside(e) {
+      if (e.target === document.getElementById('modal-overlay')) closeModal();
+    }
+
+    function buildModalHTML(type) {
+      // Local time formatting for datetime-local input
+      const tzOffset = (new Date()).getTimezoneOffset() * 60000; 
+      const localISOTime = (new Date(Date.now() - tzOffset)).toISOString().slice(0, 16);
+
+      if (type === 'sleep') return `
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-900 text-gray-800">😴 Log Sleep</h3>
+          <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" style="width:22px;height:22px;"></i></button>
+        </div>
+        <div class="space-y-3">
+          <div>
+            <label for="sleep-type" class="block text-sm font-700 text-gray-600 mb-1">Event</label>
+            <select id="sleep-type" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-600 focus:outline-none focus:ring-2 focus:ring-purple-300">
+              <option value="sleep_start">Baby fell asleep 💤</option>
+              <option value="sleep_end">Baby woke up ☀️</option>
+            </select>
+          </div>
+          <div>
+            <label for="sleep-time" class="block text-sm font-700 text-gray-600 mb-1">Time</label>
+            <input type="datetime-local" id="sleep-time" value="${localISOTime}" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-600 focus:outline-none focus:ring-2 focus:ring-purple-300" />
+          </div>
+          <div>
+            <label for="sleep-notes" class="block text-sm font-700 text-gray-600 mb-1">Notes (optional)</label>
+            <input type="text" id="sleep-notes" placeholder="e.g. seemed fussy" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-600 focus:outline-none focus:ring-2 focus:ring-purple-300" />
+          </div>
+          <button id="save-sleep-btn" onclick="saveSleep()" class="w-full py-3 rounded-2xl font-800 text-white text-sm mt-1" style="background:linear-gradient(135deg,#A78BFA,#8B5CF6)">Save Entry</button>
+        </div>`;
+
+      if (type === 'breast') return `
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-900 text-gray-800">🤱 Log Breastfeed</h3>
+          <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" style="width:22px;height:22px;"></i></button>
+        </div>
+        <div class="space-y-3">
+          <div>
+            <label for="breast-time" class="block text-sm font-700 text-gray-600 mb-1">Time</label>
+            <input type="datetime-local" id="breast-time" value="${localISOTime}" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-600 focus:outline-none focus:ring-2 focus:ring-pink-300" />
+          </div>
+          <div>
+            <label for="breast-duration" class="block text-sm font-700 text-gray-600 mb-1">Duration (minutes)</label>
+            <input type="number" id="breast-duration" placeholder="e.g. 15" min="1" max="60" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-600 focus:outline-none focus:ring-2 focus:ring-pink-300" />
+          </div>
+          <div>
+            <label for="breast-amount" class="block text-sm font-700 text-gray-600 mb-1">Amount (oz, optional)</label>
+            <input type="number" id="breast-amount" placeholder="e.g. 2.5" min="0" step="0.5" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-600 focus:outline-none focus:ring-2 focus:ring-pink-300" />
+          </div>
+          <div>
+            <label for="breast-side" class="block text-sm font-700 text-gray-600 mb-1">Side</label>
+            <select id="breast-side" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-600 focus:outline-none focus:ring-2 focus:ring-pink-300">
+              <option value="left">Left</option>
+              <option value="right">Right</option>
+              <option value="both">Both</option>
+            </select>
+          </div>
+          <div>
+            <label for="breast-notes" class="block text-sm font-700 text-gray-600 mb-1">Notes (optional)</label>
+            <input type="text" id="breast-notes" placeholder="e.g. latched well" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-600 focus:outline-none focus:ring-2 focus:ring-pink-300" />
+          </div>
+          <button id="save-breast-btn" onclick="saveBreast()" class="w-full py-3 rounded-2xl font-800 text-white text-sm mt-1" style="background:linear-gradient(135deg,#F472B6,#EC4899)">Save Entry</button>
+        </div>`;
+
+      if (type === 'formula') return `
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-900 text-gray-800">🍼 Log Formula Milk</h3>
+          <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" style="width:22px;height:22px;"></i></button>
+        </div>
+        <div class="space-y-3">
+          <div>
+            <label for="formula-time" class="block text-sm font-700 text-gray-600 mb-1">Time</label>
+            <input type="datetime-local" id="formula-time" value="${localISOTime}" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-600 focus:outline-none focus:ring-2 focus:ring-blue-300" />
+          </div>
+          <div>
+            <label for="formula-amount" class="block text-sm font-700 text-gray-600 mb-1">Amount (oz)</label>
+            <input type="number" id="formula-amount" placeholder="e.g. 4" min="1" max="16" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-600 focus:outline-none focus:ring-2 focus:ring-blue-300" />
+          </div>
+          <div>
+            <label for="formula-notes" class="block text-sm font-700 text-gray-600 mb-1">Notes (optional)</label>
+            <input type="text" id="formula-notes" placeholder="e.g. finished bottle" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-600 focus:outline-none focus:ring-2 focus:ring-blue-300" />
+          </div>
+          <button id="save-formula-btn" onclick="saveFormula()" class="w-full py-3 rounded-2xl font-800 text-white text-sm mt-1" style="background:linear-gradient(135deg,#60A5FA,#3B82F6)">Save Entry</button>
+        </div>`;
+
+      if (type === 'diaper') return `
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-900 text-gray-800">🧷 Log Diaper Change</h3>
+          <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" style="width:22px;height:22px;"></i></button>
+        </div>
+        <div class="space-y-3">
+          <div>
+            <label for="diaper-time" class="block text-sm font-700 text-gray-600 mb-1">Time</label>
+            <input type="datetime-local" id="diaper-time" value="${localISOTime}" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-600 focus:outline-none focus:ring-2 focus:ring-green-300" />
+          </div>
+          <div>
+            <label class="block text-sm font-700 text-gray-600 mb-1">Diaper Type</label>
+            <div class="flex gap-2">
+              <label class="flex-1 flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5 cursor-pointer has-[:checked]:border-yellow-400 has-[:checked]:bg-yellow-50">
+                <input type="radio" name="diaper-type" value="wet" checked class="accent-yellow-500" /> <span class="text-sm font-700">💧 Wet</span>
+              </label>
+              <label class="flex-1 flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5 cursor-pointer has-[:checked]:border-amber-400 has-[:checked]:bg-amber-50">
+                <input type="radio" name="diaper-type" value="dirty" class="accent-amber-600" /> <span class="text-sm font-700">💩 Dirty</span>
+              </label>
+              <label class="flex-1 flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5 cursor-pointer has-[:checked]:border-green-400 has-[:checked]:bg-green-50">
+                <input type="radio" name="diaper-type" value="both" class="accent-green-500" /> <span class="text-sm font-700">Both</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <label for="diaper-notes" class="block text-sm font-700 text-gray-600 mb-1">Notes (optional)</label>
+            <input type="text" id="diaper-notes" placeholder="e.g. unusual color" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-600 focus:outline-none focus:ring-2 focus:ring-green-300" />
+          </div>
+          <button id="save-diaper-btn" onclick="saveDiaper()" class="w-full py-3 rounded-2xl font-800 text-white text-sm mt-1" style="background:linear-gradient(135deg,#34D399,#10B981)">Save Entry</button>
+        </div>`;
+      return '';
+    }
+
+    // ============================================================
+    // POCKETBASE SAVE HELPERS
+    // ============================================================
+    async function saveToPocketBase(data, btnId, successMsg) {
+      const btn = document.getElementById(btnId);
+      btn.disabled = true; 
+      btn.innerHTML = '<span class="spinner"></span>';
+      
+      try {
+        if (isOfflineMode) {
+          // Simulate offline saving
+          data.id = 'temp_' + Date.now();
+          allRecords.unshift(data);
+          showToast(successMsg + ' (Offline)');
+          refreshAll();
+          closeModal();
+          return;
+        }
+
+        await pb.collection('baby_logs').create(data);
+        showToast(successMsg);
+        closeModal();
+      } catch (err) {
+        console.error(err);
+        showToast('❌ Failed to save.', 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false; 
+          btn.textContent = 'Save Entry';
+        }
+      }
+    }
+
+    async function saveSleep() {
+      const type = document.getElementById('sleep-type').value;
+      const timeStr = document.getElementById('sleep-time').value;
+      const timestamp = new Date(timeStr).toISOString();
+      const localDate = timeStr.split('T')[0];
+      const notes = document.getElementById('sleep-notes').value.trim();
+
+      await saveToPocketBase({ 
+        type, timestamp, notes, date: localDate, 
+        duration_minutes: 0, amount_ml: 0, milk_type: '', diaper_type: '' 
+      }, 'save-sleep-btn', '😴 Sleep logged!');
+    }
+
+    async function saveBreast() {
+      const timeStr = document.getElementById('breast-time').value;
+      const timestamp = new Date(timeStr).toISOString();
+      const localDate = timeStr.split('T')[0];
+      const duration_minutes = parseInt(document.getElementById('breast-duration').value) || 0;
+      const amount_ml = parseFloat(document.getElementById('breast-amount').value) || 0;
+      const side = document.getElementById('breast-side').value;
+      const notes = document.getElementById('breast-notes').value.trim();
+
+      await saveToPocketBase({ 
+        type: 'breastfeed', timestamp, date: localDate, duration_minutes, amount_ml, 
+        notes: `${side}${notes ? ' · ' + notes : ''}`, milk_type: 'breast', diaper_type: '' 
+      }, 'save-breast-btn', '🤱 Breastfeed logged!');
+    }
+
+    async function saveFormula() {
+      const timeStr = document.getElementById('formula-time').value;
+      const timestamp = new Date(timeStr).toISOString();
+      const localDate = timeStr.split('T')[0];
+      const amount_ml = parseInt(document.getElementById('formula-amount').value) || 0;
+      const notes = document.getElementById('formula-notes').value.trim();
+
+      await saveToPocketBase({ 
+        type: 'formula', timestamp, date: localDate, amount_ml, notes, 
+        duration_minutes: 0, milk_type: 'formula', diaper_type: '' 
+      }, 'save-formula-btn', '🍼 Formula logged!');
+    }
+
+    async function saveDiaper() {
+      const timeStr = document.getElementById('diaper-time').value;
+      const timestamp = new Date(timeStr).toISOString();
+      const localDate = timeStr.split('T')[0];
+      const diaper_type = document.querySelector('input[name="diaper-type"]:checked').value;
+      const notes = document.getElementById('diaper-notes').value.trim();
+
+      await saveToPocketBase({ 
+        type: 'diaper', timestamp, date: localDate, diaper_type, notes, 
+        duration_minutes: 0, amount_ml: 0, milk_type: '' 
+      }, 'save-diaper-btn', '🧷 Diaper change logged!');
+    }
+
+    // ============================================================
+    // DELETE ENTRY (Updated for PocketBase)
+    // ============================================================
+    function confirmDelete(id) {
+      const card = document.getElementById(`entry-${id}`);
+      if (!card) return;
+      let confirmDiv = card.querySelector('.delete-confirm-area');
+      if (confirmDiv) return; 
+      
+      const actions = card.querySelector('.entry-actions');
+      if (actions) actions.style.display = 'none';
+      
+      const area = document.createElement('div');
+      area.className = 'delete-confirm-area delete-confirm mt-2';
+      area.innerHTML = `<span class="text-xs font-700 text-red-500 flex-1">Delete this entry?</span>
+        <button onclick="doDelete('${id}')" class="bg-red-500 text-white text-xs font-800 px-3 py-1 rounded-lg">Yes</button>
+        <button onclick="cancelDelete('${id}')" class="bg-gray-100 text-gray-600 text-xs font-800 px-3 py-1 rounded-lg">No</button>`;
+      
+      card.appendChild(area);
+    }
+
+    function cancelDelete(id) {
+      const card = document.getElementById(`entry-${id}`);
+      if (!card) return;
+      card.querySelector('.delete-confirm-area')?.remove();
+      const actions = card.querySelector('.entry-actions');
+      if (actions) actions.style.display = '';
+    }
+
+    async function doDelete(id) {
+      const card = document.getElementById(`entry-${id}`);
+      if (card) card.style.opacity = '0.4';
+      
+      try {
+        if (isOfflineMode) {
+          allRecords = allRecords.filter(r => r.id !== id);
+          showToast('🗑️ Entry deleted. (Offline)');
+          refreshAll();
+          return;
+        }
+
+        await pb.collection('baby_logs').delete(id);
+        showToast('🗑️ Entry deleted.');
+        // Real-time listener will handle UI update
+      } catch (err) {
+        console.error(err);
+        showToast('❌ Could not delete entry.', 'error'); 
+        if (card) card.style.opacity = '1'; 
+        cancelDelete(id);
+      }
+    }
+
+    // ============================================================
+    // REFRESH UI (Completed the missing functions)
+    // ============================================================
+    function refreshAll() {
+      refreshRecentEntries();
+      refreshTodaySummary();
+      refreshHistory();
+      refreshHeaderPills();
+    }
+
+    function getTodayRecords() {
+      return allRecords.filter(r => r.date === todayStr());
+    }
+
+    function calcTodaySleep(records) {
+      const starts = records.filter(r => r.type === 'sleep_start').map(r => new Date(r.timestamp)).sort((a,b)=>a-b);
+      const ends   = records.filter(r => r.type === 'sleep_end').map(r => new Date(r.timestamp)).sort((a,b)=>a-b);
+      let totalMs = 0;
+      let si = 0, ei = 0;
+      while (si < starts.length && ei < ends.length) {
+        if (ends[ei] > starts[si]) { totalMs += ends[ei] - starts[si]; si++; ei++; }
+        else { ei++; }
+      }
+      return totalMs / 3600000; // hours
+    }
+
+    function getGoal(key) {
+      const sdk = window.elementSdk;
+      const cfg = (sdk && sdk.config) ? sdk.config : {};
+      if (key === 'milk') return parseInt(cfg.daily_milk_goal_ml || defaultConfig.daily_milk_goal_ml) || 20;
+      if (key === 'sleep') return parseFloat(cfg.daily_sleep_goal_hours || defaultConfig.daily_sleep_goal_hours) || 16;
+      return 0;
+    }
+
+    function refreshTodaySummary() {
+      const today = getTodayRecords();
+
+      // Sleep
+      const sleepHours = calcTodaySleep(today);
+      const sleepGoal = getGoal('sleep');
+      const sleepPct = Math.min(100, (sleepHours / sleepGoal) * 100);
+      const sleepSessions = today.filter(r => r.type === 'sleep_start').length;
+      
+      document.getElementById('sleep-total').textContent = sleepHours.toFixed(1) + 'h';
+      document.getElementById('sleep-goal-label').textContent = `/ ${sleepGoal}h goal`;
+      document.getElementById('sleep-progress').style.width = sleepPct + '%';
+      document.getElementById('sleep-sessions').textContent = `${sleepSessions} sleep session${sleepSessions!==1?'s':''} today`;
+      
+      const sleepBadge = document.getElementById('sleep-badge');
+      if (sleepHours >= sleepGoal) { sleepBadge.textContent = '✅ Great!'; sleepBadge.className = 'pill badge-good'; }
+      else if (sleepHours >= sleepGoal * 0.6) { sleepBadge.textContent = '⚡ Almost'; sleepBadge.className = 'pill badge-warn'; }
+      else { sleepBadge.textContent = '😴 Need more'; sleepBadge.className = 'pill badge-low'; }
+
+      // Milk
+      const milkGoal = getGoal('milk');
+      const formulaMl = today.filter(r => r.type === 'formula').reduce((s,r) => s + (r.amount_ml||0), 0);
+      const breastMl = today.filter(r => r.type === 'breastfeed').reduce((s,r) => s + (r.amount_ml||0), 0);
+      const breastSessions = today.filter(r => r.type === 'breastfeed').length;
+      const totalMilkMl = formulaMl + breastMl;
+      const milkPct = Math.min(100, (totalMilkMl / milkGoal) * 100);
+      
+      document.getElementById('milk-total').textContent = totalMilkMl + 'oz';
+      document.getElementById('milk-goal-label').textContent = `/ ${milkGoal}oz goal`;
+      document.getElementById('milk-progress').style.width = milkPct + '%';
+      document.getElementById('breast-total').textContent = breastSessions;
+      document.getElementById('formula-total').textContent = formulaMl + 'oz';
+      document.getElementById('breast-oz-total').textContent = breastMl + 'oz';
+      
+      const milkBadge = document.getElementById('milk-badge');
+      if (totalMilkMl >= milkGoal) { milkBadge.textContent = '✅ Great!'; milkBadge.className = 'pill badge-good'; }
+      else if (totalMilkMl >= milkGoal * 0.6) { milkBadge.textContent = '⚡ Almost'; milkBadge.className = 'pill badge-warn'; }
+      else { milkBadge.textContent = '🍼 Need more'; milkBadge.className = 'pill badge-low'; }
+
+      // Diapers
+      const diaperWet = today.filter(r => r.type === 'diaper' && (r.diaper_type === 'wet' || r.diaper_type === 'both')).length;
+      const diaperDirty = today.filter(r => r.type === 'diaper' && (r.diaper_type === 'dirty' || r.diaper_type === 'both')).length;
+      const totalDiapers = today.filter(r => r.type === 'diaper').length;
+      
+      document.getElementById('diaper-wet').textContent = diaperWet;
+      document.getElementById('diaper-dirty').textContent = diaperDirty;
+      document.getElementById('diaper-total-count').textContent = totalDiapers;
+      
+      const diaperBadge = document.getElementById('diaper-badge');
+      if (totalDiapers >= 6) { diaperBadge.textContent = '✅ Good'; diaperBadge.className = 'pill badge-good'; }
+      else { diaperBadge.textContent = '🧷 Log more'; diaperBadge.className = 'pill badge-warn'; }
+    }
+
+    function refreshRecentEntries() {
+      const list = document.getElementById('recent-entries-list');
+      const today = getTodayRecords();
+      
+      if (today.length === 0) {
+        list.innerHTML = '<p class="text-gray-400 text-sm text-center py-6">No entries yet today. Start logging! 👆</p>';
+        return;
+      }
+
+      list.innerHTML = today.map(r => `
+        <div class="bg-gray-50 rounded-xl p-3 entry-card flex flex-col" id="entry-${r.id}">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="text-2xl">${getIconForType(r.type)}</span>
+              <div>
+                <p class="text-sm font-800 text-gray-800">${formatEntryTitle(r)}</p>
+                <p class="text-xs font-600 text-gray-500">${formatTime(r.timestamp)} ${r.notes ? `• ${r.notes}` : ''}</p>
+              </div>
+            </div>
+            <div class="entry-actions flex items-center">
+              <button onclick="confirmDelete('${r.id}')" class="p-2 text-gray-400 hover:text-red-500 transition-colors">
+                <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+      if(window.lucide) lucide.createIcons();
+    }
+
+    function refreshHistory() {
+      const list = document.getElementById('history-list');
+      const olderRecords = allRecords.filter(r => r.date !== todayStr());
+      
+      if (olderRecords.length === 0) {
+        list.innerHTML = '<p class="text-gray-400 text-sm text-center py-6">No history yet. Keep logging! 📝</p>';
+        return;
+      }
+
+      // Group by date
+      const grouped = olderRecords.reduce((acc, r) => {
+        acc[r.date] = acc[r.date] || [];
+        acc[r.date].push(r);
+        return acc;
+      }, {});
+
+      list.innerHTML = Object.keys(grouped).sort((a,b) => new Date(b) - new Date(a)).map(date => {
+        const dayRecords = grouped[date];
+        return `
+          <div class="mb-4 border border-gray-100 rounded-xl overflow-hidden">
+            <div class="bg-pink-50 px-3 py-2 font-800 text-pink-800 text-sm border-b border-pink-100">
+              ${formatDate(date)}
+            </div>
+            <div class="divide-y divide-gray-100">
+              ${dayRecords.map(r => `
+                <div class="p-3 flex items-center justify-between bg-white" id="entry-${r.id}">
+                  <div class="flex items-center gap-2 text-sm">
+                    <span>${getIconForType(r.type)}</span>
+                    <span class="font-700 text-gray-700">${formatEntryTitle(r)}</span>
+                    <span class="text-xs text-gray-400 ml-1">${formatTime(r.timestamp)}</span>
+                  </div>
+                  <div class="entry-actions">
+                     <button onclick="confirmDelete('${r.id}')" class="text-gray-300 hover:text-red-400"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+      if(window.lucide) lucide.createIcons();
+    }
+
+    function refreshHeaderPills() {
+      const today = getTodayRecords();
+      const diapers = today.filter(r => r.type === 'diaper').length;
+      const feeds = today.filter(r => r.type === 'breastfeed' || r.type === 'formula').length;
+      
+      document.getElementById('summary-pills').innerHTML = `
+        <span class="bg-white bg-opacity-20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-700 border border-white border-opacity-30">
+          🍼 ${feeds} Feeds
+        </span>
+        <span class="bg-white bg-opacity-20 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-700 border border-white border-opacity-30">
+          🧷 ${diapers} Diapers
+        </span>
+      `;
+    }
+  </script>
+</body>
+</html>
