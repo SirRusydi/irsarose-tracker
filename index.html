@@ -5,10 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Baby Daily Tracker</title>
   
-  <!-- Retaining element SDK for your config, but replacing data SDK with PocketBase -->
   <script src="/_sdk/element_sdk.js"></script>
-  <!-- PocketBase SDK -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pocketbase/0.20.2/pocketbase.umd.js"></script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
@@ -63,7 +62,6 @@
 <body class="h-full">
   <div class="app-wrapper w-full" id="app-root">
     
-    <!-- Header -->
     <header id="app-header" style="background: linear-gradient(135deg, #FF8FAB 0%, #FFB3C6 60%, #FFCAD4 100%);" class="px-5 pt-6 pb-8 text-white relative overflow-hidden">
       <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at 20% 80%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px); background-size: 40px 40px;"></div>
       <div class="relative z-10 flex items-center justify-between">
@@ -76,11 +74,9 @@
           🍼
         </div>
       </div>
-      <!-- Today Summary Pills -->
       <div class="relative z-10 flex gap-2 mt-4 flex-wrap" id="summary-pills"></div>
     </header>
 
-    <!-- Tab Bar -->
     <nav class="flex gap-2 px-4 pt-4 pb-2" role="navigation" aria-label="Main navigation">
       <button class="tab-btn active flex-1 py-2 rounded-xl font-700 text-sm" id="tab-log" onclick="switchTab('log')" aria-label="Log activity">📝 Log</button> 
       <button class="tab-btn flex-1 py-2 rounded-xl font-700 text-sm bg-white text-pink-400" id="tab-today" onclick="switchTab('today')" aria-label="Today summary">📊 Today</button> 
@@ -89,9 +85,7 @@
 
     <main id="main-content" class="px-4 pb-8">
       
-      <!-- === LOG TAB === -->
       <section id="tab-content-log" role="tabpanel" aria-label="Log activity">
-        <!-- Quick Log Buttons -->
         <div class="section-card p-4 mb-4">
           <h2 class="text-sm font-800 text-gray-500 uppercase tracking-wider mb-3">Quick Log</h2>
           <div class="grid grid-cols-2 gap-3">
@@ -110,7 +104,6 @@
           </div>
         </div>
         
-        <!-- Recent Entries -->
         <div class="section-card p-4">
           <h2 class="text-sm font-800 text-gray-500 uppercase tracking-wider mb-3">Recent Today</h2>
           <div id="recent-entries-list" class="space-y-3">
@@ -119,9 +112,7 @@
         </div>
       </section>
 
-      <!-- === TODAY TAB === -->
       <section id="tab-content-today" class="hidden" role="tabpanel" aria-label="Today summary">
-        <!-- Sleep Summary -->
         <div class="section-card p-4 mb-4">
           <div class="flex items-center justify-between mb-3">
             <h2 class="font-800 text-gray-700 flex items-center gap-2">😴 Sleep</h2>
@@ -137,7 +128,6 @@
           <p class="text-xs text-gray-400" id="sleep-sessions">0 sleep sessions today</p>
         </div>
 
-        <!-- Milk Summary -->
         <div class="section-card p-4 mb-4">
           <div class="flex items-center justify-between mb-3">
             <h2 class="font-800 text-gray-700 flex items-center gap-2">🍼 Milk Intake</h2>
@@ -157,7 +147,6 @@
           </div>
         </div>
 
-        <!-- Diaper Summary -->
         <div class="section-card p-4 mb-4">
           <div class="flex items-center justify-between mb-3">
             <h2 class="font-800 text-gray-700">🧷 Diapers</h2>
@@ -179,7 +168,6 @@
           </div>
         </div>
 
-        <!-- Tips -->
         <div class="section-card p-4" style="background: linear-gradient(135deg,#FFF0F5,#FFF8F0);">
           <h2 class="font-800 text-gray-700 mb-2">💡 Healthy Targets</h2>
           <ul class="text-sm text-gray-600 space-y-1.5">
@@ -191,7 +179,6 @@
         </div>
       </section>
 
-      <!-- === HISTORY TAB === -->
       <section id="tab-content-history" class="hidden" role="tabpanel" aria-label="History">
         <div class="section-card p-4 mb-4">
           <h2 class="text-sm font-800 text-gray-500 uppercase tracking-wider mb-3">Past Days</h2>
@@ -203,22 +190,24 @@
     </main>
   </div>
 
-  <!-- =========== MODALS =========== -->
   <div id="modal-overlay" class="fixed inset-0 z-50 modal-backdrop flex items-end justify-center hidden" onclick="closeModalOutside(event)">
     <div class="modal-box w-full max-w-md bg-white rounded-t-3xl p-6 pb-8 shadow-2xl" id="modal-box">
       <div id="modal-content"></div>
     </div>
   </div>
 
-  <!-- Toast -->
   <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-5 py-3 rounded-2xl text-sm font-700 shadow-xl z-50 hidden transition-all duration-300 flex items-center gap-2"></div>
   
   <script>
     // ============================================================
-    // POCKETBASE SETUP
+    // SUPABASE SETUP
     // ============================================================
-    // IMPORTANT: Replace this URL with your actual PocketBase server URL
-    const pb = new PocketBase('http://127.0.0.1:8090'); 
+    const supabaseUrl = 'https://whqgstgdxhzkhhytlwws.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndocWdzdGdkeGh6a2hoeXRsd3dzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczMTg0OTMsImV4cCI6MjA5Mjg5NDQ5M30.HRBgreKONki2nAqsuzkZkh1j94oXx8Eseu0k-kYowJA';
+    
+    // CHANGE 1: Renamed 'supabase' to 'supabaseClient' so it doesn't crash!
+    const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+    
     let isOfflineMode = false;
 
     // ============================================================
@@ -250,7 +239,7 @@
     }
 
     // ============================================================
-    // ELEMENT SDK (Configuration logic retained if used inside a specific wrapper)
+    // ELEMENT SDK
     // ============================================================
     if (window.elementSdk) {
       window.elementSdk.init({
@@ -272,46 +261,48 @@
         ])
       });
     } else {
-      // Fallback if not inside Canva/Element environment
       document.getElementById('header-baby-name').textContent = `${defaultConfig.baby_name}'s Tracker`;
     }
 
     // ============================================================
-    // POCKETBASE DATA INITIALIZATION
+    // SUPABASE DATA INITIALIZATION
     // ============================================================
     async function initDatabase() {
       try {
-        // Check for mixed content issues (HTTPS preview trying to load HTTP localhost)
-        if (window.location.protocol === 'http://127.0.0.1:8090' && pb.baseUrl.includes('http://127.0.0.1')) {
-          console.warn("Attempting to connect to local HTTP PocketBase from an HTTPS origin. This will be blocked by browser mixed-content security policies. Falling back to offline mode for preview.");
-        }
+        // CHANGE 2: Used 'supabaseClient' instead of 'supabase'
+        const { data, error } = await supabaseClient
+          .from('baby_logs')
+          .select('*')
+          .order('timestamp', { ascending: false });
 
-        // Fetch all initial records
-        const records = await pb.collection('baby_logs').getFullList({
-          sort: '-timestamp', // Sort descending by timestamp
-        });
+        if (error) throw error;
         
-        allRecords = records;
+        allRecords = data;
         refreshAll();
 
-        // Subscribe to real-time updates from PocketBase
-        pb.collection('baby_logs').subscribe('*', function (e) {
-          if (e.action === 'create') {
-            allRecords.push(e.record);
-          } else if (e.action === 'update') {
-            const index = allRecords.findIndex(r => r.id === e.record.id);
-            if (index !== -1) allRecords[index] = e.record;
-          } else if (e.action === 'delete') {
-            allRecords = allRecords.filter(r => r.id !== e.record.id);
-          }
-          
-          // Re-sort after updates
-          allRecords.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
-          refreshAll();
-        });
+        // CHANGE 3: Used 'supabaseClient' instead of 'supabase'
+        supabaseClient.channel('custom-all-channel')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'baby_logs' },
+            (payload) => {
+              if (payload.eventType === 'INSERT') {
+                allRecords.push(payload.new);
+              } else if (payload.eventType === 'UPDATE') {
+                const index = allRecords.findIndex(r => r.id === payload.new.id);
+                if (index !== -1) allRecords[index] = payload.new;
+              } else if (payload.eventType === 'DELETE') {
+                allRecords = allRecords.filter(r => r.id !== payload.old.id);
+              }
+              
+              allRecords.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+              refreshAll();
+            }
+          )
+          .subscribe();
 
       } catch (err) {
-        console.error("PocketBase Error:", err);
+        console.error("Supabase Error:", err);
         isOfflineMode = true;
         document.getElementById('header-subtitle').textContent += " (Offline Preview Mode)";
         document.getElementById('header-subtitle').classList.add('text-yellow-200');
@@ -320,7 +311,6 @@
       }
     }
 
-    // Call init on load
     initDatabase();
 
     // ============================================================
@@ -392,7 +382,6 @@
     }
 
     function buildModalHTML(type) {
-      // Local time formatting for datetime-local input
       const tzOffset = (new Date()).getTimezoneOffset() * 60000; 
       const localISOTime = (new Date(Date.now() - tzOffset)).toISOString().slice(0, 16);
 
@@ -508,16 +497,15 @@
     }
 
     // ============================================================
-    // POCKETBASE SAVE HELPERS
+    // SUPABASE SAVE HELPERS
     // ============================================================
-    async function saveToPocketBase(data, btnId, successMsg) {
+    async function saveToSupabase(data, btnId, successMsg) {
       const btn = document.getElementById(btnId);
       btn.disabled = true; 
       btn.innerHTML = '<span class="spinner"></span>';
       
       try {
         if (isOfflineMode) {
-          // Simulate offline saving
           data.id = 'temp_' + Date.now();
           allRecords.unshift(data);
           showToast(successMsg + ' (Offline)');
@@ -526,7 +514,13 @@
           return;
         }
 
-        await pb.collection('baby_logs').create(data);
+        // CHANGE 4: Used 'supabaseClient' instead of 'supabase'
+        const { error } = await supabaseClient
+          .from('baby_logs')
+          .insert([data]);
+
+        if (error) throw error;
+
         showToast(successMsg);
         closeModal();
       } catch (err) {
@@ -547,7 +541,7 @@
       const localDate = timeStr.split('T')[0];
       const notes = document.getElementById('sleep-notes').value.trim();
 
-      await saveToPocketBase({ 
+      await saveToSupabase({ 
         type, timestamp, notes, date: localDate, 
         duration_minutes: 0, amount_ml: 0, milk_type: '', diaper_type: '' 
       }, 'save-sleep-btn', '😴 Sleep logged!');
@@ -562,7 +556,7 @@
       const side = document.getElementById('breast-side').value;
       const notes = document.getElementById('breast-notes').value.trim();
 
-      await saveToPocketBase({ 
+      await saveToSupabase({ 
         type: 'breastfeed', timestamp, date: localDate, duration_minutes, amount_ml, 
         notes: `${side}${notes ? ' · ' + notes : ''}`, milk_type: 'breast', diaper_type: '' 
       }, 'save-breast-btn', '🤱 Breastfeed logged!');
@@ -575,7 +569,7 @@
       const amount_ml = parseInt(document.getElementById('formula-amount').value) || 0;
       const notes = document.getElementById('formula-notes').value.trim();
 
-      await saveToPocketBase({ 
+      await saveToSupabase({ 
         type: 'formula', timestamp, date: localDate, amount_ml, notes, 
         duration_minutes: 0, milk_type: 'formula', diaper_type: '' 
       }, 'save-formula-btn', '🍼 Formula logged!');
@@ -588,14 +582,14 @@
       const diaper_type = document.querySelector('input[name="diaper-type"]:checked').value;
       const notes = document.getElementById('diaper-notes').value.trim();
 
-      await saveToPocketBase({ 
+      await saveToSupabase({ 
         type: 'diaper', timestamp, date: localDate, diaper_type, notes, 
         duration_minutes: 0, amount_ml: 0, milk_type: '' 
       }, 'save-diaper-btn', '🧷 Diaper change logged!');
     }
 
     // ============================================================
-    // DELETE ENTRY (Updated for PocketBase)
+    // DELETE ENTRY
     // ============================================================
     function confirmDelete(id) {
       const card = document.getElementById(`entry-${id}`);
@@ -635,9 +629,15 @@
           return;
         }
 
-        await pb.collection('baby_logs').delete(id);
+        // CHANGE 5: Used 'supabaseClient' instead of 'supabase'
+        const { error } = await supabaseClient
+          .from('baby_logs')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+
         showToast('🗑️ Entry deleted.');
-        // Real-time listener will handle UI update
       } catch (err) {
         console.error(err);
         showToast('❌ Could not delete entry.', 'error'); 
@@ -647,7 +647,7 @@
     }
 
     // ============================================================
-    // REFRESH UI (Completed the missing functions)
+    // REFRESH UI
     // ============================================================
     function refreshAll() {
       refreshRecentEntries();
@@ -669,7 +669,7 @@
         if (ends[ei] > starts[si]) { totalMs += ends[ei] - starts[si]; si++; ei++; }
         else { ei++; }
       }
-      return totalMs / 3600000; // hours
+      return totalMs / 3600000; 
     }
 
     function getGoal(key) {
@@ -683,7 +683,6 @@
     function refreshTodaySummary() {
       const today = getTodayRecords();
 
-      // Sleep
       const sleepHours = calcTodaySleep(today);
       const sleepGoal = getGoal('sleep');
       const sleepPct = Math.min(100, (sleepHours / sleepGoal) * 100);
@@ -699,7 +698,6 @@
       else if (sleepHours >= sleepGoal * 0.6) { sleepBadge.textContent = '⚡ Almost'; sleepBadge.className = 'pill badge-warn'; }
       else { sleepBadge.textContent = '😴 Need more'; sleepBadge.className = 'pill badge-low'; }
 
-      // Milk
       const milkGoal = getGoal('milk');
       const formulaMl = today.filter(r => r.type === 'formula').reduce((s,r) => s + (r.amount_ml||0), 0);
       const breastMl = today.filter(r => r.type === 'breastfeed').reduce((s,r) => s + (r.amount_ml||0), 0);
@@ -719,7 +717,6 @@
       else if (totalMilkMl >= milkGoal * 0.6) { milkBadge.textContent = '⚡ Almost'; milkBadge.className = 'pill badge-warn'; }
       else { milkBadge.textContent = '🍼 Need more'; milkBadge.className = 'pill badge-low'; }
 
-      // Diapers
       const diaperWet = today.filter(r => r.type === 'diaper' && (r.diaper_type === 'wet' || r.diaper_type === 'both')).length;
       const diaperDirty = today.filter(r => r.type === 'diaper' && (r.diaper_type === 'dirty' || r.diaper_type === 'both')).length;
       const totalDiapers = today.filter(r => r.type === 'diaper').length;
@@ -772,7 +769,6 @@
         return;
       }
 
-      // Group by date
       const grouped = olderRecords.reduce((acc, r) => {
         acc[r.date] = acc[r.date] || [];
         acc[r.date].push(r);
