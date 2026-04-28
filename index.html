@@ -333,7 +333,8 @@
     }
 
     function getIconForType(type) {
-      if(type.includes('sleep')) return '😴';
+      if(type ==='sleep_start') return '💤';
+      if(type ==='sleep_end') return '🌞';
       if(type === 'breastfeed') return '🤱';
       if(type === 'formula') return '🍼';
       if(type === 'diaper') return '🧷';
