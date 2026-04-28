@@ -344,7 +344,7 @@
     function formatEntryTitle(record) {
       if(record.type === 'sleep_start') return 'Fell Asleep';
       if(record.type === 'sleep_end') return 'Woke Up';
-      if(record.type === 'breastfeed') return 'Breastfed';
+      if(record.type === 'breastfeed') return 'Breastfed (${record.amount_ml}oz)';
       if(record.type === 'formula') return `Formula (${record.amount_ml}oz)`;
       if(record.type === 'diaper') return `Diaper (${record.diaper_type})`;
       return record.type;
