@@ -287,7 +287,10 @@
             { event: '*', schema: 'public', table: 'baby_logs' },
             (payload) => {
               if (payload.eventType === 'INSERT') {
-                allRecords.push(payload.new);
+                // FIXED: Check if the record already exists before adding it!
+                if (!allRecords.find(r => r.id === payload.new.id)) {
+                  allRecords.push(payload.new);
+                }
               } else if (payload.eventType === 'UPDATE') {
                 const index = allRecords.findIndex(r => r.id === payload.new.id);
                 if (index !== -1) allRecords[index] = payload.new;
@@ -300,7 +303,6 @@
             }
           )
           .subscribe();
-
       } catch (err) {
         console.error("Supabase Error:", err);
         isOfflineMode = true;
