@@ -514,12 +514,23 @@
           return;
         }
 
-        // CHANGE 4: Used 'supabaseClient' instead of 'supabase'
-        const { error } = await supabaseClient
+        // Ask Supabase to save AND return the newly created record (.select())
+        const { data: insertedData, error } = await supabaseClient
           .from('baby_logs')
-          .insert([data]);
+          .insert([data])
+          .select();
 
         if (error) throw error;
+
+        // Immediately update the screen with the new record
+        if (insertedData && insertedData.length > 0) {
+           // check if it's already there to prevent bugs
+           if (!allRecords.find(r => r.id === insertedData[0].id)) {
+              allRecords.unshift(insertedData[0]);
+              allRecords.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+              refreshAll();
+           }
+        }
 
         showToast(successMsg);
         closeModal();
@@ -533,7 +544,6 @@
         }
       }
     }
-
     async function saveSleep() {
       const type = document.getElementById('sleep-type').value;
       const timeStr = document.getElementById('sleep-time').value;
@@ -623,19 +633,23 @@
       
       try {
         if (isOfflineMode) {
-          allRecords = allRecords.filter(r => r.id !== id);
+          allRecords = allRecords.filter(r => String(r.id) !== String(id));
           showToast('🗑️ Entry deleted. (Offline)');
           refreshAll();
           return;
         }
 
-        // CHANGE 5: Used 'supabaseClient' instead of 'supabase'
+        // Tell Supabase to delete it
         const { error } = await supabaseClient
           .from('baby_logs')
           .delete()
           .eq('id', id);
 
         if (error) throw error;
+
+        // Immediately remove the record from the screen
+        allRecords = allRecords.filter(r => String(r.id) !== String(id));
+        refreshAll();
 
         showToast('🗑️ Entry deleted.');
       } catch (err) {
